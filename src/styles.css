@@ -748,6 +748,67 @@ nav a:hover {
   opacity: 0.4;
 }
 
+.section--tips {
+  background: linear-gradient(
+    180deg,
+    rgb(74 103 65 / 5%) 0%,
+    rgb(245 240 232 / 100%) 55%
+  );
+}
+
+.tips-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.tips-card {
+  background: #fff;
+  border: 1px solid rgb(44 36 24 / 8%);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.tips-card h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--earth);
+  margin-bottom: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.tips-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.tips-card ul li {
+  font-size: 13px;
+  color: rgb(44 36 24 / 62%);
+  line-height: 1.5;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.tips-card ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--sage);
+}
+
+.tips-card--alert {
+  border-color: rgb(184 64 64 / 25%);
+  background: rgb(184 64 64 / 4%);
+}
+
+.tips-card--alert ul li::before {
+  color: var(--danger);
+}
+
 .companions-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;

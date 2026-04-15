@@ -395,6 +395,12 @@ nav a:hover {
   color: rgb(245 240 232 / 55%);
 }
 
+.weather-updated {
+  margin-top: 0.75rem;
+  font-size: 12px;
+  color: rgb(245 240 232 / 45%);
+}
+
 .section__head {
   margin-bottom: 3rem;
 }
@@ -807,6 +813,78 @@ nav a:hover {
 
 .tips-card--alert ul li::before {
   color: var(--danger);
+}
+
+.gear-guide {
+  margin-top: 1.5rem;
+  background: #fff;
+  border: 1px solid rgb(44 36 24 / 8%);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.gear-guide__title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--earth);
+  margin-bottom: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.season-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.season-card,
+.essentials-card {
+  border-radius: 12px;
+  border: 1px solid rgb(44 36 24 / 9%);
+  background: rgb(44 36 24 / 2%);
+  padding: 1rem 1rem 0.95rem;
+}
+
+.season-card h4,
+.essentials-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--earth);
+  margin-bottom: 0.65rem;
+  letter-spacing: 0.01em;
+}
+
+.season-card ul,
+.essentials-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.season-card li,
+.essentials-card li {
+  position: relative;
+  padding-left: 0.9rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgb(44 36 24 / 65%);
+}
+
+.season-card li::before,
+.essentials-card li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--sage);
+}
+
+.essentials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.9rem;
 }
 
 .companions-layout {

@@ -1,12 +1,75 @@
-import { FormEvent, MouseEvent, useMemo, useState } from "react";
+import { FormEvent, MouseEvent, useEffect, useMemo, useState } from "react";
 import { companions, routeCards, weatherCards } from "./data/content";
-import { DifficultyFilter } from "./types/app";
+import { DifficultyFilter, WeatherCard } from "./types/app";
+
+type WeatherSpot = {
+  location: string;
+  latitude: number;
+  longitude: number;
+};
+
+const weatherSpots: WeatherSpot[] = [
+  { location: "Алматы / Медео", latitude: 43.1576, longitude: 77.0594 },
+  { location: "Көлсай / Күнгей", latitude: 42.9797, longitude: 78.3419 },
+  { location: "Хан Тәңірі / База", latitude: 42.1997, longitude: 80.1606 },
+  { location: "Шарын каньоны", latitude: 43.3507, longitude: 79.0747 },
+];
+
+const weatherCodeMap: Record<number, { icon: string; description: string }> = {
+  0: { icon: "☀️", description: "Ашық" },
+  1: { icon: "🌤", description: "Негізінен ашық" },
+  2: { icon: "⛅", description: "Айнымалы бұлт" },
+  3: { icon: "☁️", description: "Бұлтты" },
+  45: { icon: "🌫", description: "Тұман" },
+  48: { icon: "🌫", description: "Қыраулы тұман" },
+  51: { icon: "🌦", description: "Сіркіреме" },
+  53: { icon: "🌦", description: "Жаңбыр" },
+  55: { icon: "🌧", description: "Қатты жаңбыр" },
+  56: { icon: "🌧", description: "Мұзды сіркіреме" },
+  57: { icon: "🌧", description: "Мұзды жаңбыр" },
+  61: { icon: "🌧", description: "Жаңбыр" },
+  63: { icon: "🌧", description: "Орташа жаңбыр" },
+  65: { icon: "🌧", description: "Қатты жаңбыр" },
+  66: { icon: "🌧", description: "Мұзды жаңбыр" },
+  67: { icon: "🌧", description: "Қатты мұзды жаңбыр" },
+  71: { icon: "🌨", description: "Қар жауу" },
+  73: { icon: "🌨", description: "Орташа қар" },
+  75: { icon: "🌨", description: "Қатты қар" },
+  77: { icon: "🌨", description: "Қар түйіршігі" },
+  80: { icon: "🌦", description: "Жауын-шашын" },
+  81: { icon: "🌧", description: "Нөсерлі жаңбыр" },
+  82: { icon: "⛈", description: "Қатты нөсер" },
+  85: { icon: "🌨", description: "Қарлы нөсер" },
+  86: { icon: "🌨", description: "Қатты қарлы нөсер" },
+  95: { icon: "⛈", description: "Найзағай" },
+  96: { icon: "⛈", description: "Бұршақты найзағай" },
+  99: { icon: "⛈", description: "Қатты бұршақ" },
+};
+
+const toSignedTemp = (value: number) => `${value > 0 ? "+" : ""}${Math.round(value)}°`;
+
+const toStatus = (weatherCode: number, windSpeed: number): Pick<WeatherCard, "statusLabel" | "statusClass"> => {
+  if (windSpeed >= 35 || weatherCode >= 95 || weatherCode === 75 || weatherCode === 82 || weatherCode === 86) {
+    return { statusLabel: "Нашар жағдай", statusClass: "status--bad" };
+  }
+
+  if (windSpeed >= 20 || weatherCode >= 45) {
+    return { statusLabel: "Қабылдарлық жағдай", statusClass: "status--ok" };
+  }
+
+  return { statusLabel: "Тамаша жағдай", statusClass: "status--good" };
+};
+
+const formatUpdatedAt = () =>
+  new Date().toLocaleTimeString("kk-KZ", { hour: "2-digit", minute: "2-digit" });
 
 function App() {
   const [activeFilter, setActiveFilter] = useState<DifficultyFilter>("all");
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [coordsText, setCoordsText] = useState("Координаттар анықталуда...");
   const [publishLabel, setPublishLabel] = useState("Топты жариялау");
+  const [liveWeatherCards, setLiveWeatherCards] = useState<WeatherCard[]>(weatherCards);
+  const [weatherUpdatedAt, setWeatherUpdatedAt] = useState<string | null>(null);
 
   const filteredRoutes = useMemo(
     () =>
@@ -81,6 +144,76 @@ function App() {
       form.reset();
     }, 2500);
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWeather = async () => {
+      try {
+        const requests = weatherSpots.map(async (spot): Promise<WeatherCard> => {
+          const query = new URLSearchParams({
+            latitude: String(spot.latitude),
+            longitude: String(spot.longitude),
+            current: "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
+            hourly: "visibility",
+            forecast_days: "1",
+            timezone: "auto",
+          });
+
+          const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query.toString()}`);
+          if (!response.ok) {
+            throw new Error(`Weather request failed for ${spot.location}`);
+          }
+
+          const data = await response.json();
+          const weatherCode: number = data?.current?.weather_code ?? 0;
+          const tempValue: number = data?.current?.temperature_2m ?? 0;
+          const humidityValue: number = data?.current?.relative_humidity_2m ?? 0;
+          const windValue: number = data?.current?.wind_speed_10m ?? 0;
+          const visibilityMeters: number | null = data?.hourly?.visibility?.[0] ?? null;
+
+          const weatherDetails = weatherCodeMap[weatherCode] ?? { icon: "🌤", description: "Өзгермелі ауа райы" };
+          const visibilityKm =
+            visibilityMeters == null ? "—" : `${Math.max(1, Math.round(visibilityMeters / 1000))} км`;
+          const status = toStatus(weatherCode, windValue);
+
+          return {
+            location: spot.location,
+            icon: weatherDetails.icon,
+            temp: toSignedTemp(tempValue),
+            description: weatherDetails.description,
+            humidity: `${Math.round(humidityValue)}%`,
+            wind: `${Math.round(windValue)} км/сағ`,
+            visibility: visibilityKm,
+            statusLabel: status.statusLabel,
+            statusClass: status.statusClass,
+          };
+        });
+
+        const cards = await Promise.all(requests);
+        if (!isMounted) {
+          return;
+        }
+
+        setLiveWeatherCards(cards);
+        setWeatherUpdatedAt(formatUpdatedAt());
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+        setLiveWeatherCards(weatherCards);
+        setWeatherUpdatedAt(null);
+      }
+    };
+
+    loadWeather();
+    const refreshInterval = window.setInterval(loadWeather, 10 * 60 * 1000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshInterval);
+    };
+  }, []);
 
   return (
     <>
@@ -258,10 +391,15 @@ function App() {
               жағдай
             </h2>
             <p className="section__sub section__sub--light">Негізгі орындардағы өзекті ауа райы</p>
+            {weatherUpdatedAt ? (
+              <p className="weather-updated">Соңғы жаңарту: {weatherUpdatedAt}</p>
+            ) : (
+              <p className="weather-updated">Дерек жүктелмесе, сақталған мәндер көрсетіледі</p>
+            )}
           </div>
 
           <div className="weather-grid">
-            {weatherCards.map((weather) => (
+            {liveWeatherCards.map((weather) => (
               <div className="weather-card" key={weather.location}>
                 <div className="weather-card__loc">{weather.location}</div>
                 <div className="weather-card__row">
@@ -369,6 +507,61 @@ function App() {
                 <li>Байланыс жоқ жерде батареяны үнемдеп, SOS тек нақты қауіпте қолданыңыз</li>
                 <li>Қоқыс қалдырмаңыз: «Не алып келдіңіз - соны кері алып кетіңіз» қағидасын ұстаныңыз</li>
               </ul>
+            </div>
+          </div>
+
+          <div className="gear-guide">
+            <h3 className="gear-guide__title">Маусымға сай киім және міндетті құралдар</h3>
+
+            <div className="season-grid">
+              <article className="season-card">
+                <h4>Көктем / Күз</h4>
+                <ul>
+                  <li>Қабаттап киіну: термо ішкиім + флис + желден қорғайтын күртеше</li>
+                  <li>Су өткізбейтін шалбар және треккинг аяқ киімі</li>
+                  <li>Жылы бас киім, қолғап және қосымша құрғақ шұлық</li>
+                </ul>
+              </article>
+
+              <article className="season-card">
+                <h4>Жаз</h4>
+                <ul>
+                  <li>Жеңіл, демалатын киім және ұзын жең (күннен қорғаныс үшін)</li>
+                  <li>Панама/кепка, күннен қорғайтын көзілдірік</li>
+                  <li>Кешке арналған жеңіл желдік және жаңбыр жамылғысы</li>
+                </ul>
+              </article>
+
+              <article className="season-card">
+                <h4>Қыс</h4>
+                <ul>
+                  <li>Термокиім, оқшаулағыш орта қабат, мембраналы сыртқы қабат</li>
+                  <li>Жылы су өткізбейтін етік, гетры, қос қолғап</li>
+                  <li>Балаклава, мойынға баф, қардан қорғайтын көзілдірік</li>
+                </ul>
+              </article>
+            </div>
+
+            <div className="essentials-grid">
+              <article className="essentials-card">
+                <h4>Міндетті құралдар</h4>
+                <ul>
+                  <li>Қағаз карта немесе офлайн карта + компас</li>
+                  <li>Фонарь (headlamp) және қосымша батарея</li>
+                  <li>Пауэрбанк, ысқырық, мультитул/пышақ</li>
+                  <li>Терможапқыш (emergency blanket) және от тұтатқыш</li>
+                </ul>
+              </article>
+
+              <article className="essentials-card">
+                <h4>Аптечка және жақпа май</h4>
+                <ul>
+                  <li>Эластик бинт, стерильді салфетка, пластырь</li>
+                  <li>Антисептик және күйік/жараға арналған жақпа май</li>
+                  <li>Соғылу мен бұлшықетке арналған қабынуға қарсы гель</li>
+                  <li>Жеке дәрілер: аллергия, ауырсыну, асқазанға қарсы</li>
+                </ul>
+              </article>
             </div>
           </div>
         </div>
